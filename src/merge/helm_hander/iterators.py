@@ -24,7 +24,8 @@ def iter_yaml_files(base_path: str,
     """
 
     def normalize(patterns):
-        return [p.strip("./").replace("\\", "/") for p in patterns or []]
+        return [p.replace("\\", "/").lstrip("/") for p in patterns or []]
+
 
     exclude_dirs = set(normalize(exclude_dirs))
     exclude_files = set(normalize(exclude_files))
