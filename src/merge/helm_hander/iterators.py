@@ -6,7 +6,7 @@ logger.setLevel(logging.DEBUG)
 
 
 def iter_yaml_files(base_path: str,
-                    exclude_dirs=None, exclude_files=None):
+                    exclude_dirs=None, exclude_files=None , include_files = None, include_dirs= None):
 
     exclude_dirs = set(exclude_dirs or [])
     exclude_files = set(exclude_files or [])
