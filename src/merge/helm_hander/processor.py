@@ -123,38 +123,130 @@ def strip_anchor(node):
     return node
 
 
+def _unwrap_value(node):
+    """Return the plain Python scalar for a ruamel scalar node, or the node itself."""
+    return getattr(node, "value", node)
+
+def _get_anchor_name(node):
+    """Return anchor name if node has one, else None."""
+    return getattr(getattr(node, "anchor", None), "value", None)
+
+def _collect_anchors(node, anchor_map):
+    """Traverse target_data and collect anchor_name -> node mapping for anchor definitions."""
+    if isinstance(node, (CommentedMap, dict)):
+        for k, v in node.items():
+            name = _get_anchor_name(v)
+            if name:
+                anchor_map[name] = v
+            _collect_anchors(v, anchor_map)
+    elif isinstance(node, (CommentedSeq, list)):
+        for item in node:
+            name = _get_anchor_name(item)
+            if name:
+                anchor_map[name] = item
+            _collect_anchors(item, anchor_map)
+
 def update_yaml_from_wrapped_data(wrapped_node_dict, target_file_path, output_file_path):
     target_data = load_yaml(target_file_path)
 
     updates_made = []
+    anchor_map = {}
+    _collect_anchors(target_data, anchor_map)
 
-    def recursive_update(wrapped, target, updates_made: list):
-        if isinstance(wrapped, dict) and isinstance(target, dict):
+    def recursive_update(wrapped, target, base_path=""):
+        # dict-like recursion
+        if isinstance(wrapped, (CommentedMap, dict)) and isinstance(target, (CommentedMap, dict)):
             for key, wrapped_value in wrapped.items():
                 if key not in target:
                     continue
+                child_path = f"{base_path}.{key}" if base_path else str(key)
+
                 if isinstance(wrapped_value, WrappedNode):
-                    if wrapped_value.value != target[key]:
-                        target[key] = wrapped_value.value
-                        updates_made.append(wrapped_value.path)
-                else:
-                    recursive_update(wrapped_value, target[key], updates_made)
-        elif isinstance(wrapped, list) and isinstance(target, list):
-            for i, item in enumerate(wrapped):
-                if i < len(target):
-                    if isinstance(item, WrappedNode) and item.value != target[i]:
-                        target[i] = item.value
-                        updates_made.append(item.path)
+                    new_scalar = _unwrap_value(wrapped_value.value)
+                    current_target = target[key]
+                    current_scalar = _unwrap_value(current_target)
+
+                    if new_scalar != current_scalar:
+                        logger.info(f"Updating {child_path}: {current_scalar!r} -> {new_scalar!r}")
+                        # If the target node itself has an anchor -> mutate it in-place to preserve anchor/aliases
+                        target_anchor_name = _get_anchor_name(current_target)
+                        if target_anchor_name:
+                            # inplace when ruamel scalar objects exist (they expose `.value`)
+                            if hasattr(current_target, "value"):
+                                current_target.value = new_scalar
+                            else:
+                                # fallback: assign raw scalar (best-effort)
+                                target[key] = new_scalar
+                        else:
+                            # If source had an anchor name and the target contains that anchor definition,
+                            # update that anchor definition instead (preserve aliasing)
+                            source_anchor_name = wrapped_value.anchor_name
+                            if source_anchor_name and source_anchor_name in anchor_map:
+                                anchor_node = anchor_map[source_anchor_name]
+                                if hasattr(anchor_node, "value"):
+                                    anchor_node.value = new_scalar
+                                else:
+                                    # fallback: replace anchor node with raw scalar (rare)
+                                    parent_replaced = False
+                                    # try to find and replace in parent map/seq -- omitted for brevity
+                                    if not parent_replaced:
+                                        anchor_map[source_anchor_name] = new_scalar
+                                logger.debug(f" - Updated anchor definition {source_anchor_name}")
+                            else:
+                                # Assign raw scalar (avoid copying source node with its anchor)
+                                target[key] = new_scalar
+
+                        updates_made.append(child_path)
                     else:
-                        recursive_update(item, target[i], updates_made)
+                        logger.debug(f"Skipping {child_path} (no change)")
+                else:
+                    # nested structure -> recurse
+                    recursive_update(wrapped_value, target[key], child_path)
+
+        # list-like recursion
+        elif isinstance(wrapped, (CommentedSeq, list)) and isinstance(target, (CommentedSeq, list)):
+            for idx, item in enumerate(wrapped):
+                child_path = f"{base_path}[{idx}]"
+                if idx < len(target):
+                    if isinstance(item, WrappedNode):
+                        new_scalar = _unwrap_value(item.value)
+                        current_target = target[idx]
+                        current_scalar = _unwrap_value(current_target)
+                        if new_scalar != current_scalar:
+                            logger.info(f"Updating {child_path}: {current_scalar!r} -> {new_scalar!r}")
+                            target_anchor_name = _get_anchor_name(current_target)
+                            if target_anchor_name and hasattr(current_target, "value"):
+                                current_target.value = new_scalar
+                            else:
+                                # If source anchor matches a target anchor def, update that def
+                                source_anchor_name = item.anchor_name
+                                if source_anchor_name and source_anchor_name in anchor_map:
+                                    anchor_node = anchor_map[source_anchor_name]
+                                    if hasattr(anchor_node, "value"):
+                                        anchor_node.value = new_scalar
+                                    else:
+                                        anchor_map[source_anchor_name] = new_scalar
+                                    logger.debug(f" - Updated anchor definition {source_anchor_name}")
+                                else:
+                                    target[idx] = new_scalar
+                            updates_made.append(child_path)
+                        else:
+                            logger.debug(f"Skipping {child_path} (no change)")
+                    else:
+                        # nested element
+                        recursive_update(item, target[idx], child_path)
+                else:
+                    # append new item (append plain scalar to avoid importing source anchors)
+                    val_to_append = _unwrap_value(item.value) if isinstance(item, WrappedNode) else item
+                    target.append(val_to_append)
+                    updates_made.append(child_path)
 
         else:
-            if not isinstance(wrapped, WrappedNode):
-                logger.warning(f"newtype: {type(wrapped)}")
+            # mismatched types - nothing to do
+            return
 
-    recursive_update(wrapped_node_dict, target_data, updates_made)
+    recursive_update(wrapped_node_dict, target_data, "")
 
     dump_yaml(target_data, output_file_path)
-
-    logging.info(f"Update complete. {len(updates_made)} keys updated.")
+    logger.info(f"Update complete. {len(updates_made)} paths updated.")
     return updates_made
