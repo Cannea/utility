@@ -14,6 +14,9 @@ EXCLUDE_FILES = (
     "documentum-resources-values-small.yaml",
     "documentum-resources-values-small-medium.yaml",
     "documentum-resources-values-test-small.yaml",
+    "./config/passwords_k8api.yaml"
+    "./config/passwords_vault.yaml"
+    "./config/vault_secret.yaml"
 )
 EXCLUDE_DIRS = ("templates", "charts", "mergeUtility", "addons", "platforms", ".editor-config")
 INCLUDE_DIRS = ("platforms")
