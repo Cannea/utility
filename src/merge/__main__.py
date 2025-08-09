@@ -18,11 +18,32 @@ EXCLUDE_FILES = (
     "passwords_vault.yaml",
     "vault_secret.yaml",
 )
-EXCLUDE_DIRS = ("templates", "charts", "mergeUtility", "addons", "platforms", ".editor-config")
+EXCLUDE_DIRS_SOURCE = ("templates", "charts", "mergeUtility", ".editor-config")
+EXCLUDE_DIRS_TARGET = ("templates", "charts", "mergeUtility", ".editor-config", "platforms")
 INCLUDE_DIRS = ()
 INCLUDE_FILES = ()
 
-HELM_READ_CONFIG = {"exclude_dirs": EXCLUDE_DIRS, "exclude_files": EXCLUDE_FILES, "include_files": INCLUDE_FILES, "include_dirs": INCLUDE_DIRS}
+HELM_READ_CONFIG_SOURCE = {
+    "exclude_dirs": EXCLUDE_DIRS_SOURCE,
+    "exclude_files": EXCLUDE_FILES,
+    "include_files": INCLUDE_FILES,
+    "include_dirs": INCLUDE_DIRS,
+}
+HELM_READ_CONFIG_TARGET = {
+    "exclude_dirs": EXCLUDE_DIRS_TARGET,
+    "exclude_files": EXCLUDE_FILES,
+    "include_files": INCLUDE_FILES,
+    "include_dirs": INCLUDE_DIRS,
+}
+
+VALUES_ORDER_DEFAULT = [
+    "./config/configuration.yml",
+    "./config/constants.yaml",
+    "./config/passwords.yaml",
+    "./platforms/anthos.yaml",
+    "./documentum-resources-values-dev-test.yaml",
+    "./documentum-components.yaml",
+]
 
 
 def main():
@@ -34,12 +55,13 @@ def main():
         print(f"  {arg}: {value}")
 
     target_path = args.target_path
+    values_order = args.cofiguration if not args.cofiguration else VALUES_ORDER_DEFAULT
 
     if args.output:
         target_path = copy_chart_folder(target_path)
 
-    app_version, processed_data = consolidated_helm_chart_data(chart_path=args.source_path, **HELM_READ_CONFIG)
-    dump_consolidated_data_to_helm_chart(processed_data, chart_path=target_path, **HELM_READ_CONFIG)
+    app_version, processed_data = consolidated_helm_chart_data(chart_path=args.source_path, values_order=values_order**HELM_READ_CONFIG_SOURCE)
+    dump_consolidated_data_to_helm_chart(processed_data, chart_path=target_path, **HELM_READ_CONFIG_TARGET)
 
 
 if __name__ == "__main__":
