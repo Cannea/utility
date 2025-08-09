@@ -128,37 +128,26 @@ def update_yaml_from_wrapped_data(wrapped_node_dict, target_file_path, output_fi
 
     updates_made = []
 
-    def recursive_update(wrapped, target):
-        if (isinstance(wrapped, CommentedMap) or isinstance(wrapped, dict)) and (isinstance(target, CommentedMap) or isinstance(target, dict)):
+    def recursive_update(wrapped, target, updates_made: list):
+        if isinstance(wrapped, dict) and isinstance(target, dict):
             for key, wrapped_value in wrapped.items():
                 if key not in target:
                     continue
-
                 if isinstance(wrapped_value, WrappedNode):
-                    current_target_value = target[key]
-
-                    if wrapped_value.value != current_target_value:
-                        logging.info(f"Updating key: {wrapped_value.path}")
-                        logging.debug(f" - Old value: {current_target_value}")
-                        logging.debug(f" - New value: {wrapped_value.value}")
-                        if wrapped_value.was_aliased:
-                            target[key] = wrapped_value.value
-                        else:
-                            target[key] = strip_anchor(wrapped_value.value)
-
-                    else:
-                        logging.info(f"Skipping key: {wrapped_value.path} (values match)")
+                    if wrapped_value.value != target[key]:
+                        target[key] = wrapped_value.value
+                        updates_made.append(wrapped_value.path)
                 else:
-                    # Recurse into nested dicts/lists
-                    recursive_update(wrapped_value, target[key])
-
+                    recursive_update(wrapped_value, target[key], updates_made)
         elif isinstance(wrapped, list) and isinstance(target, list):
-            # Special handling for extraEnv (list of dicts with "name" keys)
-            for idx, item in enumerate(wrapped):
-                if idx < len(target):
-                    target[idx] = item.value
-                else:
-                    target.append(item.value)
+            for i, item in enumerate(wrapped):
+                if i < len(target):
+                    if isinstance(item, WrappedNode) and item.value != target[i]:
+                        target[i] = item.value
+                        updates_made.append(item.path)
+                    else:
+                        recursive_update(item, target[i], updates_made)
+
 
         else:
             if not isinstance(wrapped, WrappedNode):
