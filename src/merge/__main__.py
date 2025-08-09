@@ -30,10 +30,13 @@ def main():
     for arg, value in vars(args).items():
         print(f"  {arg}: {value}")
 
-    new_folder_path = copy_chart_folder(args.target_path)
+    target_path = args.target_path
+
+    if args.output:
+        target_path = copy_chart_folder(target_path)
 
     app_version, processed_data = consolidated_helm_chart_data(chart_path=args.source_path, **HELM_READ_CONFIG)
-    dump_consolidated_data_to_helm_chart(processed_data, chart_path=new_folder_path, **HELM_READ_CONFIG)
+    dump_consolidated_data_to_helm_chart(processed_data, chart_path=target_path, **HELM_READ_CONFIG)
 
 
 if __name__ == "__main__":

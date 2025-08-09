@@ -148,12 +148,11 @@ def update_yaml_from_wrapped_data(wrapped_node_dict, target_file_path, output_fi
                     else:
                         recursive_update(item, target[i], updates_made)
 
-
         else:
             if not isinstance(wrapped, WrappedNode):
                 logger.warning(f"newtype: {type(wrapped)}")
 
-    recursive_update(wrapped_node_dict, target_data)
+    recursive_update(wrapped_node_dict, target_data, updates_made)
 
     dump_yaml(target_data, output_file_path)
 
