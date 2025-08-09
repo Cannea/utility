@@ -13,18 +13,19 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
     - exclude_dirs / exclude_files / include_dirs / include_files
       can be filename patterns or relative path patterns.
     - Paths are compared relative to base_path.
-    - Excluded dirs are skipped entirely (no exceptions).
+    - Includes override excludes.
     """
     exclude_dirs = exclude_dirs or ()
     exclude_files = exclude_files or ()
     include_dirs = include_dirs or ()
     include_files = include_files or ()
 
+    # Ensure all patterns use forward slashes for consistency
     def norm_patterns(patterns):
         return [p.lstrip("./").replace("\\", "/") for p in patterns]
 
-    exclude_dirs = set(norm_patterns(exclude_dirs))
-    exclude_files = set(norm_patterns(exclude_files))
+    exclude_dirs = set(norm_patterns(exclude_dirs)) - set(norm_patterns(include_dirs))
+    exclude_files = set(norm_patterns(exclude_files)) - set(norm_patterns(include_files))
     include_dirs = set(norm_patterns(include_dirs))
     include_files = set(norm_patterns(include_files))
 
@@ -33,21 +34,23 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
         if rel_root == ".":
             rel_root = ""
 
-        # Remove all excluded subdirs, no exceptions
-        dirs[:] = [
-            d for d in dirs
-            if not any(fnmatch.fnmatch(d, pat) or fnmatch.fnmatch(f"{rel_root}/{d}", pat)
-                       for pat in exclude_dirs)
-        ]
+        # --- Directory exclusion ---
+        rel_root_match = rel_root or ""  # '' for top-level
+        if any(fnmatch.fnmatch(rel_root_match, pat) for pat in exclude_dirs) \
+           and not any(fnmatch.fnmatch(rel_root_match, pat) for pat in include_dirs):
+            logger.debug(f"Skipping dir (excluded): {rel_root_match}")
+            dirs.clear()
+            continue
 
-        # Process files
         for file in files:
             rel_path = os.path.normpath(os.path.join(rel_root, file)).replace("\\", "/")
 
+            # --- File exclusion ---
             if any(fnmatch.fnmatch(rel_path, pat) for pat in exclude_files) \
                and not any(fnmatch.fnmatch(rel_path, pat) for pat in include_files):
                 logger.debug(f"Skipping file (excluded): {rel_path}")
                 continue
 
+            # Only yield YAML files
             if file.endswith((".yaml", ".yml")):
                 yield os.path.join(root, file)
