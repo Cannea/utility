@@ -5,33 +5,38 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
+def iter_yaml_files(base_path: str,
+                    exclude_dirs=None, exclude_files=None,
                     include_dirs=None, include_files=None):
     """
-    Yield YAML file paths matching filters.
-    Supports exclusion/inclusion of directories and files by pattern.
+    Yield YAML file paths under base_path based on filtering rules.
+
+    All patterns (for exclude/include) are relative to base_path and use forward slashes.
+    Includes override excludes.
+
+    Args:
+        base_path (str): Root directory to start searching from.
+        exclude_dirs (list): Patterns for directories to exclude.
+        exclude_files (list): Patterns for files to exclude.
+        include_dirs (list): Patterns for directories to explicitly include.
+        include_files (list): Patterns for files to explicitly include.
     """
-    exclude_dirs = exclude_dirs or []
-    exclude_files = exclude_files or []
-    include_dirs = include_dirs or []
-    include_files = include_files or []
 
-    def norm_patterns(patterns):
-        return [p.strip("./").replace("\\", "/") for p in patterns]
+    # Helper to normalize patterns consistently
+    def normalize(patterns):
+        return [p.strip("./").replace("\\", "/") for p in patterns or []]
 
-    # Normalize all patterns
-    exclude_dirs = norm_patterns(exclude_dirs)
-    exclude_files = norm_patterns(exclude_files)
-    include_dirs = norm_patterns(include_dirs)
-    include_files = norm_patterns(include_files)
+    exclude_dirs = set(normalize(exclude_dirs))
+    exclude_files = set(normalize(exclude_files))
+    include_dirs = set(normalize(include_dirs))
+    include_files = set(normalize(include_files))
 
     for root, dirs, files in os.walk(base_path):
-        # Normalize relative path
         rel_root = os.path.relpath(root, base_path).replace("\\", "/")
         if rel_root == ".":
             rel_root = ""
 
-        # Filter subdirectories (in-place to affect os.walk)
+        # Filter subdirectories in-place (affects traversal)
         dirs[:] = [
             d for d in dirs
             if not (
@@ -40,22 +45,23 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
             )
         ]
 
-        # Check if the current directory itself is excluded
-        if any(fnmatch.fnmatch(rel_root, pat) for pat in exclude_dirs) and \
+        # Skip current dir if excluded and not overridden by include
+        if rel_root and any(fnmatch.fnmatch(rel_root, pat) for pat in exclude_dirs) and \
            not any(fnmatch.fnmatch(rel_root, pat) for pat in include_dirs):
-            logger.debug(f"Skipping directory (excluded): {rel_root}")
+            logger.debug(f"Skipping excluded dir: {rel_root}")
             continue
 
         for file in files:
-            rel_path = f"{rel_root}/{file}".lstrip("/")
-            full_path = os.path.join(root, file)
+            rel_file_path = f"{rel_root}/{file}".lstrip("/")
+            full_file_path = os.path.join(root, file)
 
-            # File exclusion logic
-            if any(fnmatch.fnmatch(rel_path, pat) for pat in exclude_files) and \
-               not any(fnmatch.fnmatch(rel_path, pat) for pat in include_files):
-                logger.debug(f"Skipping file (excluded): {rel_path}")
+            if not file.endswith((".yaml", ".yml")):
                 continue
 
-            if file.endswith((".yaml", ".yml")):
-                logger.debug(f"Yielding YAML file: {rel_path}")
-                yield full_path
+            # Apply file exclusion
+            if any(fnmatch.fnmatch(rel_file_path, pat) for pat in exclude_files) and \
+               not any(fnmatch.fnmatch(rel_file_path, pat) for pat in include_files):
+                logger.debug(f"Skipping excluded file: {rel_file_path}")
+                continue
+
+            yield full_file_path
