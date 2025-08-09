@@ -2,8 +2,8 @@ import pytest
 
 from merge.skeleton import fib, main
 
-__author__ = "Your Name"
-__copyright__ = "Your Name"
+__author__ = "Kartik nataraj subramanian"
+__copyright__ = "Kartik nataraj subramanian"
 __license__ = "MIT"
 
 
