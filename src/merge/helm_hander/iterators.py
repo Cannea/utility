@@ -51,6 +51,7 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
             continue
 
         for file in files:
+            print(file)
             rel_path = os.path.normpath(os.path.join(rel_root, file)).replace("\\", "/")
 
             # File exclusion
