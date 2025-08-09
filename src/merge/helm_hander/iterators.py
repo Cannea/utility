@@ -34,18 +34,26 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
         if rel_root == ".":
             rel_root = ""
 
-        # --- Directory exclusion ---
-        rel_root_match = rel_root or ""  # '' for top-level
+        # Remove excluded dirs before walking further
+        dirs[:] = [
+            d for d in dirs
+            if not (
+                any(fnmatch.fnmatch(d, pat) for pat in exclude_dirs) and
+                not any(fnmatch.fnmatch(f"{rel_root}/{d}".lstrip("/"), pat) for pat in include_dirs)
+            )
+        ]
+
+        # If current dir itself is excluded, skip entirely
+        rel_root_match = rel_root or ""
         if any(fnmatch.fnmatch(rel_root_match, pat) for pat in exclude_dirs) \
            and not any(fnmatch.fnmatch(rel_root_match, pat) for pat in include_dirs):
             logger.debug(f"Skipping dir (excluded): {rel_root_match}")
-            dirs.clear()
             continue
 
         for file in files:
             rel_path = os.path.normpath(os.path.join(rel_root, file)).replace("\\", "/")
 
-            # --- File exclusion ---
+            # File exclusion
             if any(fnmatch.fnmatch(rel_path, pat) for pat in exclude_files) \
                and not any(fnmatch.fnmatch(rel_path, pat) for pat in include_files):
                 logger.debug(f"Skipping file (excluded): {rel_path}")
@@ -54,3 +62,4 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
             # Only yield YAML files
             if file.endswith((".yaml", ".yml")):
                 yield os.path.join(root, file)
+
