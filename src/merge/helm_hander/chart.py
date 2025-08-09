@@ -49,13 +49,9 @@ def consolidated_helm_chart_data(
 
     print(processed_files.keys())
 
-    if not values_order:
-        for k, v in processed_files.items():
-            processed_data = deep_merge(processed_data, v)
-    else:
-        for rel_path in values_order:
-            print(rel_path)
-            processed_data = (processed_data, processed_files.get(rel_path, {}))
+    for rel_path in values_order:
+        print(rel_path)
+        processed_data = (processed_data, processed_files.get(rel_path, {}))
 
     if remove_disabled:
         disabled_components = get_disabled_components(components_list, processed_data)
