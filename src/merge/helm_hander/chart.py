@@ -47,7 +47,7 @@ def consolidated_helm_chart_data(
 
     processed_data = {}
 
-    print(processed_files)
+    print(processed_files.keys())
 
     if not values_order:
         for k, v in processed_files.items():
