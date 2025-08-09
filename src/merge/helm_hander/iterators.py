@@ -13,8 +13,7 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
     - exclude_dirs / exclude_files / include_dirs / include_files
       can be filename patterns or relative path patterns.
     - Paths are compared relative to base_path.
-    - Includes override excludes (even inside excluded dirs).
-    - Excluded dirs are skipped unless they contain an explicitly included file.
+    - Excluded dirs are skipped entirely (no exceptions).
     """
     exclude_dirs = exclude_dirs or ()
     exclude_files = exclude_files or ()
@@ -24,8 +23,8 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
     def norm_patterns(patterns):
         return [p.lstrip("./").replace("\\", "/") for p in patterns]
 
-    exclude_dirs = set(norm_patterns(exclude_dirs)) - set(norm_patterns(include_dirs))
-    exclude_files = set(norm_patterns(exclude_files)) - set(norm_patterns(include_files))
+    exclude_dirs = set(norm_patterns(exclude_dirs))
+    exclude_files = set(norm_patterns(exclude_files))
     include_dirs = set(norm_patterns(include_dirs))
     include_files = set(norm_patterns(include_files))
 
@@ -34,13 +33,11 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
         if rel_root == ".":
             rel_root = ""
 
-        # Remove excluded subdirs unless they contain an explicitly included file
+        # Remove all excluded subdirs, no exceptions
         dirs[:] = [
             d for d in dirs
-            if not (
-                any(fnmatch.fnmatch(d, pat) for pat in exclude_dirs)
-                and not any(fnmatch.fnmatch(f"{rel_root}/{d}", pat) for pat in include_dirs)
-            )
+            if not any(fnmatch.fnmatch(d, pat) or fnmatch.fnmatch(f"{rel_root}/{d}", pat)
+                       for pat in exclude_dirs)
         ]
 
         # Process files
@@ -48,7 +45,7 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
             rel_path = os.path.normpath(os.path.join(rel_root, file)).replace("\\", "/")
 
             if any(fnmatch.fnmatch(rel_path, pat) for pat in exclude_files) \
-            and not any(fnmatch.fnmatch(rel_path, pat) for pat in include_files):
+               and not any(fnmatch.fnmatch(rel_path, pat) for pat in include_files):
                 logger.debug(f"Skipping file (excluded): {rel_path}")
                 continue
 
