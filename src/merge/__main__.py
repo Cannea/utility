@@ -55,7 +55,7 @@ def main():
         print(f"  {arg}: {value}")
 
     target_path = args.target_path
-    values_order = args.cofiguration if not args.cofiguration else VALUES_ORDER_DEFAULT
+    values_order = args.configuration if not args.configuration else VALUES_ORDER_DEFAULT
 
     if args.output:
         target_path = copy_chart_folder(target_path)
