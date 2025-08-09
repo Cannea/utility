@@ -34,26 +34,21 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
         if rel_root == ".":
             rel_root = ""
 
-        # --- Handle excluded directories ---
-        if any(fnmatch.fnmatch(os.path.basename(rel_root), pat) for pat in exclude_dirs) \
-        and not any(fnmatch.fnmatch(rel_root, pat) for pat in include_dirs):
-            
-            has_included_file = any(
-                fnmatch.fnmatch(f"{rel_root}/{f}", pat) for f in files for pat in include_files
+        # Remove excluded subdirs unless they contain an explicitly included file
+        dirs[:] = [
+            d for d in dirs
+            if not (
+                any(fnmatch.fnmatch(d, pat) for pat in exclude_dirs)
+                and not any(fnmatch.fnmatch(f"{rel_root}/{d}", pat) for pat in include_dirs)
             )
+        ]
 
-            if not has_included_file:
-                logger.debug(f"Skipping dir (excluded): {rel_root}")
-                dirs.clear()
-                continue
-
-
-        # --- Process files ---
+        # Process files
         for file in files:
             rel_path = os.path.normpath(os.path.join(rel_root, file)).replace("\\", "/")
 
             if any(fnmatch.fnmatch(rel_path, pat) for pat in exclude_files) \
-               and not any(fnmatch.fnmatch(rel_path, pat) for pat in include_files):
+            and not any(fnmatch.fnmatch(rel_path, pat) for pat in include_files):
                 logger.debug(f"Skipping file (excluded): {rel_path}")
                 continue
 
