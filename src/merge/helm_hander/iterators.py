@@ -5,6 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+
 def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
                     include_dirs=None, include_files=None):
     """
@@ -13,6 +14,7 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
       can be filename patterns or relative path patterns.
     - Paths are compared relative to base_path.
     - Includes override excludes (even inside excluded dirs).
+    - Excluded dirs are skipped unless they contain an explicitly included file.
     """
     exclude_dirs = exclude_dirs or ()
     exclude_files = exclude_files or ()
@@ -32,17 +34,21 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
         if rel_root == ".":
             rel_root = ""
 
+        # --- Handle excluded directories ---
         if any(fnmatch.fnmatch(rel_root, pat) for pat in exclude_dirs) \
            and not any(fnmatch.fnmatch(rel_root, pat) for pat in include_dirs):
-            dirs[:] = [d for d in dirs if any(
-                fnmatch.fnmatch(f"{rel_root}/{d}", pat) for pat in include_dirs
-            )]
-            if not dirs and not any(
+
+            # Check if this excluded dir has any explicitly included file
+            has_included_file = any(
                 fnmatch.fnmatch(f"{rel_root}/{f}", pat) for f in files for pat in include_files
-            ):
+            )
+
+            if not has_included_file:
                 logger.debug(f"Skipping dir (excluded): {rel_root}")
+                dirs.clear()  # stop walking deeper
                 continue
 
+        # --- Process files ---
         for file in files:
             rel_path = os.path.normpath(os.path.join(rel_root, file)).replace("\\", "/")
 
@@ -51,6 +57,5 @@ def iter_yaml_files(base_path: str, exclude_dirs=None, exclude_files=None,
                 logger.debug(f"Skipping file (excluded): {rel_path}")
                 continue
 
-            # Only yield YAML files
             if file.endswith((".yaml", ".yml")):
                 yield os.path.join(root, file)
