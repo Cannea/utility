@@ -55,7 +55,7 @@ def main():
         print(f"  {arg}: {value}")
 
     target_path = args.target_path
-    values_order = args.configuration if args.configuration != [] else VALUES_ORDER_DEFAULT
+    values_order = args.configuration if args.configuration != None else VALUES_ORDER_DEFAULT
     print(f"values: {values_order}")
 
     if args.output:
