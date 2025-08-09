@@ -60,7 +60,7 @@ def main():
     if args.output:
         target_path = copy_chart_folder(target_path)
 
-    app_version, processed_data = consolidated_helm_chart_data(chart_path=args.source_path, values_order=values_order**HELM_READ_CONFIG_SOURCE)
+    app_version, processed_data = consolidated_helm_chart_data(chart_path=args.source_path, values_order=values_order, **HELM_READ_CONFIG_SOURCE)
     dump_consolidated_data_to_helm_chart(processed_data, chart_path=target_path, **HELM_READ_CONFIG_TARGET)
 
 
