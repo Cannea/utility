@@ -18,8 +18,8 @@ EXCLUDE_FILES = (
     "./config/passwords_vault.yaml",
     "./config/vault_secret.yaml",
 )
-EXCLUDE_DIRS = ("templates", "charts", "mergeUtility", "addons", "platforms", ".editor-config")
-INCLUDE_DIRS = ("platforms")
+EXCLUDE_DIRS = ("./templates", "./charts", "./mergeUtility", "./addons", "./platforms", "./.editor-config")
+INCLUDE_DIRS = ("./platforms")
 INCLUDE_FILES = ("aws.yaml")
 
 HELM_READ_CONFIG = {"exclude_dirs": EXCLUDE_DIRS, "exclude_files": EXCLUDE_FILES, "include_files": INCLUDE_FILES, "include_dirs": INCLUDE_DIRS}
