@@ -11,21 +11,12 @@ def iter_yaml_files(base_path: str,
                     include_dirs=None, include_files=None):
     """
     Yield YAML file paths under base_path based on filtering rules.
-
     All patterns (for exclude/include) are relative to base_path and use forward slashes.
     Includes override excludes.
-
-    Args:
-        base_path (str): Root directory to start searching from.
-        exclude_dirs (list): Patterns for directories to exclude.
-        exclude_files (list): Patterns for files to exclude.
-        include_dirs (list): Patterns for directories to explicitly include.
-        include_files (list): Patterns for files to explicitly include.
     """
 
     def normalize(patterns):
-        return [p.replace("\\", "/").lstrip("/") for p in patterns or []]
-
+        return [("./" + p.replace("\\", "/").lstrip("./")) for p in patterns or []]
 
     exclude_dirs = set(normalize(exclude_dirs))
     exclude_files = set(normalize(exclude_files))
@@ -37,13 +28,12 @@ def iter_yaml_files(base_path: str,
     for root, dirs, files in os.walk(base_path):
         abs_root = os.path.abspath(root)
         rel_root = os.path.relpath(abs_root, base_path).replace("\\", "/")
-        if rel_root == ".":
-            rel_root = ""
+        rel_root = "." if rel_root == "." else f"./{rel_root}"
 
         # === EXCLUDE DIRECTORIES BEFORE DESCENDING ===
         pruned_dirs = []
         for d in dirs:
-            rel_dir_path = f"{rel_root}/{d}".lstrip("/")
+            rel_dir_path = f"{rel_root}/{d}"
             if (
                 any(fnmatch.fnmatch(rel_dir_path, pat) for pat in exclude_dirs)
                 and not any(fnmatch.fnmatch(rel_dir_path, pat) for pat in include_dirs)
@@ -58,7 +48,7 @@ def iter_yaml_files(base_path: str,
             if not file.endswith((".yaml", ".yml")):
                 continue
 
-            rel_file_path = f"{rel_root}/{file}".lstrip("/")
+            rel_file_path = f"{rel_root}/{file}"
             full_file_path = os.path.join(abs_root, file)
 
             if (
